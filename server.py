@@ -1,63 +1,47 @@
 # server.py
 import socket
 
-# Use '0.0.0.0' to listen on all available network interfaces.
-# This is important for a server in a network environment.
-HOST = '192.168.1.1
-'
-PORT = 12345
+# The server's own IP address
+HOST = '192.168.1.1' 
+PORT = 65432        # Port to listen on
 
-print("Starting server...")
+# Create a TCP/IP socket
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# This outer try/except handles errors in setting up the server socket itself
 try:
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # Bind the socket to the address and port
     server_socket.bind((HOST, PORT))
-    server_socket.listen(3)
     
-    hostname = socket.gethostname()
-    ip_address = socket.gethostbyname(hostname)
-    print("Server is listening on {}:{}...".format(ip_address, PORT))
+    # Start listening for incoming connections
+    server_socket.listen()
+    print("Server is listening on {}:{}".format(HOST, PORT))
 
-    # Main loop to continuously accept new connections
+    # Block execution and wait for a connection
+    client_conn, client_addr = server_socket.accept()
+
+    print("Connected by {}".format(client_addr))
+    
     while True:
-        print("\nWaiting for a new client to connect...")
-        # Accept a connection
-        # conn is the socket for the client, addr is their address
-        conn, address = server_socket.accept()
-        
-        # This inner try/except/finally handles the communication with a single client
         try:
-            print("Connected by {}".format(address))
-            # Receive data from the client
-            data = conn.recv(1024)
-            if data:
-                decoded_data = data.decode('utf-8')
-                print("Client says: {}".format(decoded_data))
+            # Get input from the server's user (use raw_input for older Python 2)
+            message_to_send = raw_input("Enter message for client (or 'exit' to close): ")
+
+            # Send the message to the client. Data must be in bytes.
+            client_conn.sendall(message_to_send.encode('utf-8'))
+
+            # If the server user types 'exit', break the loop and close
+            if message_to_send.lower() == 'exit':
+                print("Server initiated shutdown.")
+                break
                 
-                # Send a response back to the client
-                response = "Hello Client, message received by Python server!"
-                conn.sendall(response.encode('utf-8'))
-                print("Response sent to client.")
-            else:
-                print("Client disconnected without sending data.")
-        
-        except socket.error as e:
-            print("Error during communication with {}: {}".format(address, e))
-        
-        finally:
-            # Crucially, close the connection to this specific client
-            # The server will then loop back and wait for another one
-            conn.close()
-            print("Connection with {} closed.".format(address))
-
-except socket.error as e:
-    print("Server setup error: {}".format(e))
-except KeyboardInterrupt:
-    print("\nServer shutting down due to user interrupt (Ctrl+C).")
+        except (socket.error, IOError):
+            print("Client disconnected.")
+            break
+        except Exception as e:
+            print("An error occurred: {}".format(e))
+            break
 finally:
-    if 'server_socket' in locals():
-        server_socket.close()
-    print("Server socket closed.")
-
+    print("Closing server connection.")
+    if 'client_conn' in locals():
+        client_conn.close()
+    server_socket.close()
